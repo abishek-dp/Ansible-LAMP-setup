@@ -1,0 +1,85 @@
+---
+- name:LAMP stack on CentOS
+  hosts: all
+  become: yes
+  vars:
+    mysql_root_password: "your_root_password"
+    mysql_user: "your_user"
+    mysql_user_password: "your_user_password"
+    mysql_database: "your_database"
+
+  tasks:
+    - name: Update yum packages
+      yum:
+        name: '*'
+        state: latest
+
+    - name: Install Apache
+      yum:
+        name: httpd
+        state: present
+
+    - name: Ensure Apache is running and enabled
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: Install MySQL
+      yum:
+        name: mysql-server
+        state: present
+
+    - name: Start MySQL service
+      service:
+        name: mysqld
+        state: started
+        enabled: yes
+
+    - name: Secure MySQL installation
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        host_all: yes
+        state: present
+
+    - name: Install PHP and necessary modules
+      yum:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - php
+        - php-mysqlnd
+        - php-cli
+        - php-pdo
+        - php-gd
+
+    - name: Create MySQL database
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: present
+
+    - name: Create MySQL user
+      mysql_user:
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_user_password }}"
+        priv: "{{ mysql_database }}.*:ALL"
+        state: present
+
+    - name: Create a sample PHP info page
+      copy:
+        dest: /var/www/html/info.php
+        content: |
+          <?php
+          phpinfo();
+          ?>
+        owner: apache
+        group: apache
+        mode: '0644'
+
+  handlers:
+    - name: Restart Apache
+      service:
+        name: httpd
+        state: restarted
+
