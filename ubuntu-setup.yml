@@ -1,0 +1,82 @@
+---
+- name: Abi's LAMP stack setup
+  hosts: all
+  become: yes
+  vars:
+    mysql_root_password: "mysql-root-pass"
+    mysql_user: "root"
+    mysql_user_password: "user_pass"
+    mysql_database: "basedb"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Apache
+      apt:
+        name: apache2
+        state: present
+
+    - name: Ensure Apache is running and enabled
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Install MySQL
+      apt:
+        name: mysql-server
+        state: present
+
+    - name: Secure MySQL installation
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        host_all: yes
+        state: present
+
+    - name: Install PHP
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - php
+        - php-mysql
+        - php-cli
+        - php-curl
+        - php-gd
+
+    - name: Ensure Apache PHP module is enabled
+      command: a2enmod php7.4
+      notify:
+        - Restart Apache
+
+    - name: Create MySQL database
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: present
+
+    - name: Create MySQL user
+      mysql_user:
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_user_password }}"
+        priv: "{{ mysql_database }}.*:ALL"
+        state: present
+
+    - name: Create a sample PHP info page
+      copy:
+        dest: /var/www/html/info.php
+        content: |
+          <?php
+          phpinfo();
+          ?>
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+  handlers:
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
